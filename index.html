@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title> socketのテストだよ </title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+    <link rel="stylesheet" href="//cdn.rawgit.com/necolas/normalize.css/master/normalize.css">
+    <link rel="stylesheet" href="//cdn.rawgit.com/milligram/milligram/master/dist/milligram.min.css">
+</head>
+<body>
+
+    <div class="container">
+
+        <h4>メンバー</h4>
+        現在<b id="person_num">0</b>人
+        <ul id="users"></ul>
+        <form id="login_form" action="#">
+            <input id="user_name" autocomplete="off" />
+            <button>参加</button>
+        </form>
+        <hr />
+        <h4>チャット</h4>
+        <ul id="messages"></ul>
+
+        <form id="message_form" action="#">
+            <input id="input_msg" autocomplete="off" />
+            <button>送信</button>
+        </form>
+
+        <hr />
+
+        <div id="tanka_area">
+            <h4>開始！</h4>
+            <ul id="tanka_naiyo">
+            </ul>
+            <form id="reply_form" action="#">
+                <input id="my_reply" autocomplete="off" />
+                <button>回答</button>
+            </form>
+        </div>
+
+    </div>
+
+    <script>
+        var socketio = io();
+        var state = 0;
+        var login = false;
+        $(function(){
+            $('#message_form').hide();
+            $('#tanka_area').hide();
+
+            $('#login_form').submit(function(){
+                socketio.emit('login', $('#user_name').val());
+                $('#user_name').val('');
+                return false;
+            });
+
+            $('#message_form').submit(function(){
+                socketio.emit('message', $('#input_msg').val());
+                $('#input_msg').val('');
+                return false;
+            });
+
+            $(window).on('beforeunload', function(){
+                socketio.disconnect();
+            });
+
+            socketio.on('login_result', function(result){
+                if(result){
+                    login = true;
+                    $('#login_form').hide();
+                    $('#message_form').show();
+                };
+            });
+
+            socketio.on('loginned_member', function(member){
+                if(member.length > 0){
+                    member.forEach(function(v){
+                        $('#users').append($('<li>').text(v.name).attr('id','user_' + v.number));
+                    });
+                    $('#person_num').text(member.length);
+                };
+            });
+
+            socketio.on('member_add', function(num, name, ninzuu){
+                $('#users').append($('<li>').text(name).attr('id','user_' + num));
+                $('#person_num').text(ninzuu)
+            });
+
+            socketio.on('memberleave', function(num, ninzuu){
+                $('#user_' + num).remove();
+                $('#person_num').text(ninzuu);
+            });
+
+            socketio.on('statechange', function(st){
+                if(st == 1){
+
+                };
+            });
+
+            socketio.on('message', function(msg){
+                $('#messages').append($('<li>').text(msg));
+            });
+        });
+    </script>
+</body>
+</html>
