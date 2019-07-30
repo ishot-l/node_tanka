@@ -16,10 +16,45 @@
         <h4>メンバー</h4>
         現在<b id="person_num">0</b>人
         <ul id="users"></ul>
+
+        <div id="tanka_area">
+            <p id="narration"></p>
+            <ul id="tanka_naiyo">
+            </ul>
+            <table id="member_state">
+                <tr>
+                    <td id="member_name_0"></td>
+                    <td id="member_state_0"></td>
+                </tr>
+                <tr>
+                    <td id="member_name_1"></td>
+                    <td id="member_state_1"></td>
+                </tr>
+                <tr>
+                    <td id="member_name_2"></td>
+                    <td id="member_state_2"></td>
+                </tr>
+                <tr>
+                    <td id="member_name_3"></td>
+                    <td id="member_state_3"></td>
+                </tr>
+                <tr>
+                    <td id="member_name_4"></td>
+                    <td id="member_state_4"></td>
+                </tr>
+            </table>
+
+            <form id="reply_form" action="#">
+                <input id="my_reply" autocomplete="off" />
+                <button>回答</button>
+            </form>
+        </div>
+
         <form id="login_form" action="#">
             <input id="user_name" autocomplete="off" />
             <button>参加</button>
         </form>
+
         <hr />
         <h4>チャット</h4>
         <ul id="messages"></ul>
@@ -29,18 +64,6 @@
             <button>送信</button>
         </form>
 
-        <hr />
-
-        <div id="tanka_area">
-            <h4>開始！</h4>
-            <ul id="tanka_naiyo">
-            </ul>
-            <form id="reply_form" action="#">
-                <input id="my_reply" autocomplete="off" />
-                <button>回答</button>
-            </form>
-        </div>
-
     </div>
 
     <script>
@@ -49,7 +72,7 @@
         var login = false;
         $(function(){
             $('#message_form').hide();
-            $('#tanka_area').hide();
+            //$('#tanka_area').hide();
 
             $('#login_form').submit(function(){
                 socketio.emit('login', $('#user_name').val());
@@ -72,6 +95,32 @@
                     login = true;
                     $('#login_form').hide();
                     $('#message_form').show();
+                };
+            });
+
+            // メンバーの状態変化、全送信が重かったら変える
+            socketio.on('member_state_change', function(member){
+                if(member.length > 0){
+                    member.forEach(function(v, key){
+                        console.log(key);
+                        $('#member_name_' + key).text(v.name);
+                        switch(v.state){
+                            case 0:
+                                $('#member_state_' + key).text("待機中");
+                                break;
+                            case 1:
+                                $('#member_state_' + key).text("入力中...");
+                                break;
+                            case 2:
+                                $('#member_state_' + key).text("入力終了！");
+                                break;
+                        };
+                    });
+                };
+                // いなかったら消す
+                for(let i=member.length; i<5; i++){
+                    $('#member_name_' + i).text('');
+                    $('#member_state_' + i).text('');
                 };
             });
 

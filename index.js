@@ -18,12 +18,13 @@ io.on('connection', function(socket){
     console.log('connection : ' + socket.id);
     
     io.to(socket.id).emit('loginned_member', member.map(function(v){ return {'name': v.name, 'number': v.number}}));
+    io.to(socket.id).emit('member_state_change', member.map(function(v){ return {'name': v.name, 'state': v.state}}));
 
     socket.on('login', function(name){
         if(!name) name = '名無し' + usernum;
         socket.userName = name;
         console.log('enter : ' + name);
-        member.push({'id': socket.id, 'name': name, 'number': usernum});
+        member.push({'id': socket.id, 'name': name, 'number': usernum, 'state': 0});
         io.emit('message', `[おしらせ] : ${name}が参加しました。`);
         if(member.length == 5){
             // ゲーム開始
@@ -33,6 +34,7 @@ io.on('connection', function(socket){
         }
         io.to(socket.id).emit('login_result', true);
         io.emit('member_add', usernum, name, member.length);
+        io.emit('member_state_change', member.map(function(v){ return {'name': v.name, 'state': v.state}}));
         usernum += 1;
     });
 
@@ -57,6 +59,7 @@ io.on('connection', function(socket){
             console.log('memberleave : ' + check.number);
             io.emit('message', `[おしらせ] : ${check.name}が退出しました。`);
             io.emit('memberleave', check.number, member.length);
+            io.emit('member_state_change', member.map(function(v){ return {'name': v.name, 'state': v.state}}));
         };
         console.log('disconnect : ' + socket.id);
     });
