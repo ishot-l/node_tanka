@@ -1,27 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title> socketのテストだよ </title>
+    <title> みんなで短歌 </title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     
     <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
     <link rel="stylesheet" href="//cdn.rawgit.com/necolas/normalize.css/master/normalize.css">
     <link rel="stylesheet" href="//cdn.rawgit.com/milligram/milligram/master/dist/milligram.min.css">
+
+    <style type="text/css">
+        #overlay {
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 1
+        }
+
+        #result_modal {
+            width: 30em;
+            height: 25em;
+            position: fixed;
+            border: 2px solid #D04255;
+            background-color: #FFF;
+            display: none;
+            z-index: 2;
+            padding: 1em;
+        }
+    </style>
 </head>
 <body>
 
     <div class="container">
+        <p id="system_notice" style="color: red"></p>
 
-        <h4>メンバー</h4>
-        現在<b id="person_num">0</b>人
+        <h4>みんなで短歌</h4>
         <ul id="users"></ul>
 
-        <div id="tanka_area">
-            <p id="narration"></p>
-            <ul id="tanka_naiyo">
-            </ul>
-            <table id="member_state">
+        <p id="narration">5人揃ったら始まるよ</p>
+        <ul id="tanka_naiyo">
+        </ul>
+        <table id="member_state">
+            <thead>
+                <tr>
+                    <td>名前 (現在<b id="person_num">0</b>人)</td>
+                    <td>状態</td>
+                </tr>
+            </thead>
+            <tbody>
                 <tr>
                     <td id="member_name_0"></td>
                     <td id="member_state_0"></td>
@@ -42,11 +72,13 @@
                     <td id="member_name_4"></td>
                     <td id="member_state_4"></td>
                 </tr>
-            </table>
+            </tbody>
+        </table>
 
-            <form id="reply_form" action="#">
-                <input id="my_reply" autocomplete="off" />
-                <button>回答</button>
+        <div id="tanka_area">
+            <form id="phrase_form" action="#">
+                <input id="my_phrase" autocomplete="off" />
+                <button>詠む</button>
             </form>
         </div>
 
@@ -57,7 +89,9 @@
 
         <hr />
         <h4>チャット</h4>
-        <ul id="messages"></ul>
+        <div id="message_area" style="height: 10em; overflow: auto; background-color: beige">
+            <ul id="messages"></ul>
+        </div>
 
         <form id="message_form" action="#">
             <input id="input_msg" autocomplete="off" />
@@ -66,13 +100,41 @@
 
     </div>
 
+    <div id="overlay"></div>
+    <div id="result_modal">
+        <h4 id="yo_pong"></h4>
+        <p id="tanka_result"></p>
+        <button id="modal_close">とじる</button>
+    </div>
+
     <script>
         var socketio = io();
         var state = 0;
         var login = false;
+        var member_info = [];
         $(function(){
             $('#message_form').hide();
-            //$('#tanka_area').hide();
+            $('#tanka_area').hide();
+
+            $('#modal_close').on('click', function(){
+                $('#overlay, #result_modal').fadeOut();
+            });
+
+            locateCenter();
+            $(window).resize(locateCenter);
+
+            function locateCenter() {
+                let w = $(window).width();
+                let h = $(window).height();
+                
+                let cw = $('#result_modal').outerWidth();
+                let ch = $('#result_modal').outerHeight();
+            
+                $('#result_modal').css({
+                'left': ((w - cw) / 2) + 'px',
+                'top': ((h - ch) / 2) + 'px'
+                });
+            }
 
             $('#login_form').submit(function(){
                 socketio.emit('login', $('#user_name').val());
@@ -86,6 +148,17 @@
                 return false;
             });
 
+            $('#phrase_form').submit(function(){
+                if($('#my_phrase').val() == ""){
+                    $('#system_notice').val("文字を入力して、やりなおし");
+                    return false;
+                }
+                socketio.emit('phrase', $('#my_phrase').val());
+                $('#my_phrase').val('');
+                $('#tanka_area').fadeOut();
+                return false;
+            });
+
             $(window).on('beforeunload', function(){
                 socketio.disconnect();
             });
@@ -95,14 +168,17 @@
                     login = true;
                     $('#login_form').hide();
                     $('#message_form').show();
+                }else{
+                    $('#system_notice').text('ログインに失敗しました。');
                 };
             });
 
             // メンバーの状態変化、全送信が重かったら変える
             socketio.on('member_state_change', function(member){
+                member_info = member;
+                $('#person_num').text(member.length);
                 if(member.length > 0){
                     member.forEach(function(v, key){
-                        console.log(key);
                         $('#member_name_' + key).text(v.name);
                         switch(v.state){
                             case 0:
@@ -119,38 +195,47 @@
                 };
                 // いなかったら消す
                 for(let i=member.length; i<5; i++){
-                    $('#member_name_' + i).text('');
+                    $('#member_name_' + i).text('募集中...');
                     $('#member_state_' + i).text('');
                 };
             });
 
-            socketio.on('loginned_member', function(member){
-                if(member.length > 0){
-                    member.forEach(function(v){
-                        $('#users').append($('<li>').text(v.name).attr('id','user_' + v.number));
-                    });
-                    $('#person_num').text(member.length);
-                };
-            });
-
-            socketio.on('member_add', function(num, name, ninzuu){
-                $('#users').append($('<li>').text(name).attr('id','user_' + num));
-                $('#person_num').text(ninzuu)
-            });
-
-            socketio.on('memberleave', function(num, ninzuu){
-                $('#user_' + num).remove();
-                $('#person_num').text(ninzuu);
-            });
-
             socketio.on('statechange', function(st){
-                if(st == 1){
+                if(login){
+                    switch(st){
+                        case 1:
+                            $('#narration').text(`ゲーム開始です。詠んでください。`);
+                            $('#tanka_area').fadeIn();
+                            break;
+                        case -1:
+                            // 実行中に切断されてしまったばあい
+                            // 今度実装
 
-                };
+                    }
+                }
+            });
+
+            socketio.on('tanka_kansei', function(tanka){
+                $('#overlay, #result_modal').fadeIn(1500);
+                $('#yo_pong').delay(1000).append('よぉーっ').fadeIn()
+                             .delay(500).append('.').fadeIn()
+                             .delay(500).append('.').fadeIn()
+                             .delay(500).append('ぽん！<br>').fadeIn();
+
+                console.log(tanka);
+                
+                $('#tanka_result').delay(1000).append(tanka[0] + '<br>').fadeIn();
+                $('#tanka_result').delay(1000).append(tanka[1] + '<br>').fadeIn();
+                $('#tanka_result').delay(1000).append(tanka[2] + '<br>').fadeIn();
+                $('#tanka_result').delay(1000).append(tanka[3] + '<br>').fadeIn();
+                $('#tanka_result').delay(1000).append(tanka[4] + '<br>').fadeIn();
+
             });
 
             socketio.on('message', function(msg){
-                $('#messages').append($('<li>').text(msg));
+                $('#messages').append($('<li>').text(msg).fadeIn());
+                // メッセージ領域の自動スクロール
+                $('#message_area').animate({scrollTop: $('#message_area')[0].scrollHeight});
             });
         });
     </script>
