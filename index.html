@@ -98,12 +98,19 @@
             <button>送信</button>
         </form>
 
+        <hr />
+        <h4>過去作品たち</h4>
+        <p id="tanka_histories"></p>
+
     </div>
+
+    <div id="blank">　</div>
 
     <div id="overlay"></div>
     <div id="result_modal">
         <h4 id="yo_pong"></h4>
         <p id="tanka_result"></p>
+        <p id="alart_result"></p>
         <button id="modal_close">とじる</button>
     </div>
 
@@ -118,6 +125,9 @@
 
             $('#modal_close').on('click', function(){
                 $('#overlay, #result_modal').fadeOut();
+                $('#yo_pong').text('');
+                $('#tanka_result').text('');
+                $('#alart_result').text('');
             });
 
             locateCenter();
@@ -134,6 +144,21 @@
                 'left': ((w - cw) / 2) + 'px',
                 'top': ((h - ch) / 2) + 'px'
                 });
+            }
+
+            function syokika() {
+                $('#person_num').text(0);
+                $('#message_form').hide();
+                $('#tanka_area').hide();
+                $('#login_form').show();
+                $('#narration').text(`5人揃ったら始まるよ`);
+                login = false;
+                state = 0;
+                member_info = [];
+                for(let i=0; i<5; i++){
+                    $('#member_name_' + i).text('募集中...');
+                    $('#member_state_' + i).text('');
+                };
             }
 
             $('#login_form').submit(function(){
@@ -173,6 +198,18 @@
                 };
             });
 
+            socketio.on('receive_history', function(com_history, tanka_history){
+                com_history.forEach(function(v){
+                    $('#messages').append($('<li>').text(v));
+                });
+
+                tanka_history.forEach(function(v){
+                    $('#tanka_histories').append($('<h5>').text(v.naiyo));
+                    $('#tanka_histories').append($('<h6>').text(v.member));
+                    $('#tanka_histories').append('<br>');
+                });
+            });
+
             // メンバーの状態変化、全送信が重かったら変える
             socketio.on('member_state_change', function(member){
                 member_info = member;
@@ -210,6 +247,10 @@
                         case -1:
                             // 実行中に切断されてしまったばあい
                             // 今度実装
+                            $('#overlay, #result_modal').fadeIn();
+                            $('#alart_result').text('参加中のユーザーが切断したので、ゲームが中断されました。');
+                            
+                            syokika();
 
                     }
                 }
@@ -229,6 +270,8 @@
                 $('#tanka_result').delay(1000).append(tanka[2] + '<br>').fadeIn();
                 $('#tanka_result').delay(1000).append(tanka[3] + '<br>').fadeIn();
                 $('#tanka_result').delay(1000).append(tanka[4] + '<br>').fadeIn();
+
+                syokika();
 
             });
 
