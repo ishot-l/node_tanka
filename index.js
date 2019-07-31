@@ -20,11 +20,15 @@ io.on('connection', function(socket){
     console.log('connection : ' + socket.id);
     
     io.to(socket.id).emit('member_state_change', member.map(function(v){ return {'name': v.name, 'state': v.state}}));
-    io.to(socket.id).emit('receive_history', history.map(function(v){ return `[${v.name}] : ${v.content}`}), tanka_hist);
+    io.to(socket.id).emit('receive_history', history.map(function(v){ return `[${v.name}] : ${v.content} - ${v.date}`}), tanka_hist);
 
     function send_message(name, content){
-        io.emit('message',`[${name}] : ${content}`);
-        history.push({'name': name, 'content': content});
+        let date = new Date();
+        date.setTime(date.getTime() + 1000*60*60*9);// JSTに変換
+        date_str = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
+        
+        io.emit('message',`[${name}] : ${content} - ${date_str}`);
+        history.push({'name': name, 'content': content, 'date': date_str});
         if(history.length > 50){
             history.shift();
         }
